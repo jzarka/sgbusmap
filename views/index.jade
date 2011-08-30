@@ -1,0 +1,119 @@
+script(src="/socket.io/socket.io.js")
+script(src="/javascripts/jquery-1.6.2.js")
+
+// h1= title
+// p Welcome to #{title}
+// p Test Value #{value}
+
+
+script
+	var map = null;
+	var DataStoreyProvider = function() {
+		this.bus_stops_map  = {};
+		this.bus_stops_id_to_marker = {};
+		this.socket = io.connect('http://localhost:3000');
+		this.selected_bus = null;
+	}
+	var dataStoreyProvider = new DataStoreyProvider();
+	function connectToServer() {
+		dataStoreyProvider.socket.on('bus_stop', function (data) {
+			var bus_stop = data['bus_stop'];
+			dataStoreyProvider.bus_stops_map[bus_stop.real_stop_id] = bus_stop;
+			var myLatlng = new google.maps.LatLng(bus_stop['latitude'], bus_stop['longitude']);
+			var marker = addOverlay(myLatlng, bus_stop['stop_name']);
+			dataStoreyProvider.bus_stops_id_to_marker[bus_stop.real_stop_id] = marker;
+		});
+		dataStoreyProvider.socket.on('bus_stop_time', function (data) {
+			var jsonTime = data;
+			var bus_stop_time = jsonTime.bus_stop_time;
+			var real_stop_id = bus_stop_time.real_stop_id;
+			var t = bus_stop_time.results[0].nextbus.t
+			var bus_stop = dataStoreyProvider.bus_stops_map[real_stop_id];
+			var myLatlng = new google.maps.LatLng(bus_stop['latitude'], bus_stop['longitude']);
+			addCircle(myLatlng, real_stop_id, parseInt(t) * 10);
+		});
+		dataStoreyProvider.socket.on('destinations', function (data) {
+			var html = '';
+			var destinations = data.destinations;
+			for (var i = 0; i< destinations.length; i++) {
+				html += '<option value="' + destinations[i].direction + '">' + destinations[i].start_stop_name + '</option>';
+			}
+			$('select#destination_selector').append(html);
+			var destination = data.destinations;
+		});
+
+	}
+	function addCircle(myLatlng, title, radius) {
+		var marker = dataStoreyProvider.bus_stops_id_to_marker[title];
+		var circle = new google.maps.Circle({
+			map: map,
+			radius: radius
+		});
+		circle.bindTo('center', marker, 'position');
+		if (radius == 0) {
+			var icon = new google.maps.MarkerImage("http://localhost:3000/images/20px-MTS_Bus_icon_green.svg.png");
+			marker.setIcon(icon);
+		}
+		else {
+			var icon = new google.maps.MarkerImage("http://localhost:3000/images/12px-MTS_Bus_icon.svg.png");
+			marker.setIcon(icon);
+		}
+	}
+	function addOverlay(myLatlng, title) {
+		var icon = new google.maps.MarkerImage("http://localhost:3000/images/12px-MTS_Bus_icon.svg.png");
+		var marker = new google.maps.Marker({
+			icon: icon,
+			position: myLatlng,
+			title: title
+			});
+		var infowindow = new google.maps.InfoWindow({
+			content: title,
+			size: new google.maps.Size(50,50)
+		});
+		google.maps.event.addListener(marker, 'click', function() {
+			infowindow.open(map,marker);
+		});
+		marker.setMap(map);
+		return marker;
+	}
+	function initialize() {
+		var myLatlng = new google.maps.LatLng(1.339979, 103.95139);
+		var myOptions = {
+			zoom: 14,
+			center: myLatlng,
+			mapTypeId: google.maps.MapTypeId.ROADMAP
+		}
+		map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+		var myLatlng = new google.maps.LatLng(-25.363882,131.044922);
+		connectToServer();
+	}
+	function loadScript() {
+		var script = document.createElement("script");
+		script.type = "text/javascript";
+		script.src = "http://maps.googleapis.com/maps/api/js?sensor=false&callback=initialize";
+		document.body.appendChild(script);
+
+	}
+	window.onload = loadScript;
+	var select_bus = function(obj) {
+		var selected_bus = obj.value;
+		dataStoreyProvider.selected_bus = selected_bus;
+		dataStoreyProvider.socket.emit('bus_selected', {bus: selected_bus});
+	}
+	var select_destination = function(obj) {
+		var selected_dest = obj.value;
+		var selected_bus = dataStoreyProvider.selected_bus;
+		dataStoreyProvider.socket.emit('destination_selected', {selected_bus: selected_bus, selected_dest: selected_dest});
+	}
+
+div#control_canvas
+	p control canvas
+	select#bus_selector(onchange="javascript:select_bus(this)")
+		option 3
+		option 2
+	select#destination_selector(onchange="javascript:select_destination(this)")
+
+
+
+div#map_canvas
+
