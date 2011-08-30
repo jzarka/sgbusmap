@@ -9,7 +9,7 @@ var sys    = require('sys');
 TimeProvider = function() {
 }
 
-requestTimeForBusStop = function(service_no, bus_stop_no, callback) {
+TimeProvider.prototype.requestTimeForBusStop = function(service_no, bus_stop_no, callback) {
 	var options = {
 		host: 'sg-next-bus.appspot.com',   
     	port: 80,   

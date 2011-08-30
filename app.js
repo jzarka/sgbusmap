@@ -59,7 +59,6 @@ console.log("Express server listening on port %d in %s mode", app.address().port
 
 
 io.sockets.on('connection', function (socket) {
-//  socket.emit('news', { hello: 'world' });
   var busStopTime = function(bus_time) {
 	socket.emit('bus_stop_time', {bus_stop_time: bus_time});
   }
@@ -70,43 +69,30 @@ io.sockets.on('connection', function (socket) {
 */
 
   socket.on('destination_selected', function (data) {
-	console.log('selected bus' + data.selected_bus);
-	console.log('selected dest ' + data.selected_dest);
-	dbProvider.findBusStops(data.selected_bus, function(bus_stops) {
-		dbProvider.addLatLong(bus_stops, function(bus_stop_lat_long) {
-				socket.emit('bus_stop', {bus_stop: bus_stop_lat_long});
+	dbProvider.realStopIdFromServiceAndDirection(data.selected_bus, parseInt(data.selected_dest), function(bus_stops) {
+		dbProvider.latLongFromRealStopIds(bus_stops, function(bus_stop_lat_long) {
+			socket.emit('bus_stop', {bus_stop: bus_stop_lat_long});
+			timeProvider.requestTimeForBusStop(data.selected_bus, bus_stop_lat_long.real_stop_id, function(bus_time) {
+				socket.emit('bus_stop_time', {bus_stop_time: bus_time});
+				
+			});
+			/*
+			setInterval(function(){ timeProvider.requestTimeForBusStop(data.selected_bus, bus_stop_lat_long.real_stop_id, function(bus_time) {
+				socket.emit('bus_stop_time', {bus_stop_time: bus_time});
+				
+			}); }, 100);
+			*/
+			console.log(bus_stop_lat_long.real_stop_id);
 		});
 	});
-//	dbProvider.findBusStopsDestination(data.selected_bus, data.selected_dest);	
   });
-
-  var destinationsFoundForBus = function(destinations_rows) {
-	console.log(destinations_rows);
-	socket.emit('destinations', {destinations: destinations_rows});
-  }
 
   socket.on('bus_selected', function(data) {
-	var busStopFound = function(bus_stops) {
-	  console.log(bus_stops);
-	}
 	var selected_bus = data.bus;
-	console.log(selected_bus);
-	dbProvider.destinationsForBus(selected_bus, destinationsFoundForBus);
+	dbProvider.destinationsForBus(selected_bus, function(destinations_rows) {
+		socket.emit('destinations', {destinations: destinations_rows});
+	});
   });
-
-/*
-var busStopCallback = function(bus_stops) {
-    dbProvider.addLatLong(bus_stops, busStopLatLongCallback);
-    timeProvider.requestTime('2', bus_stops, busStopTime);
-  }
-  dbProvider.findBusStops('2', busStopCallback);
-*/
-/*
-	setInterval(function(){
-	console.log('emit news');
- 	socket.emit('news', { hello: 'world'});
-	}, 1000);
-*/
 });
 
 console.log('socket.io initialised!');

@@ -17,12 +17,12 @@ html, body {
 
 #control_canvas {
   position: relative;
-  height: 20%;
+  height: 10%;
 }
 
 #map_canvas {
   position: relative;
-  height: 80%;
+  height: 90%;
 }
 
 @media print {
