@@ -2,6 +2,86 @@ var sys    = require('sys'),
     sqlite = require('../node-sqlite/sqlite');
 
 DbProvider = function() {
+	var self = this;
+	self.db = new sqlite.Database();
+	
+	
+	function initialiseDb(dbInitialised) {
+		self.db.open("./busguides.db", function (error) {
+			if (error) throw error;
+			dbInitialised();
+		});
+	}
+ 	function findAllBus(callback) {
+	 	self.db.query("SELECT * FROM buses", function (error, rows) {
+	  		if (error) throw error;
+			if (rows) callback(rows);
+		});
+	}
+	
+	
+	// callback to be called with:
+	// [ { bus_number: '518', direction: 0, start_stop_name: 'PASIR RIS INT', start_road_name: 'PASIR RIS DR 3', end_stop_name: 'PASIR RIS INT',end_road_name: 'PASIR RIS DR 3' } ]
+	function findDirectionsForBus(service_no, callback) {
+		var sql = 'SELECT * FROM directions WHERE bus_number = ?';
+		var destinations = [];
+		self.db.prepare(sql, function (error, statement) {
+			if (error) throw error;
+		    // Fill in the placeholders
+			statement.bindArray([service_no], function () {
+				statement.fetchAll(function (error, rows) {
+
+					callback(rows);
+					statement.finalize(function (error) {
+						if (error) throw error;
+					});
+		    	});
+			});
+		});
+	}
+	function findStopIds(service_no, direction, callback) {
+		var sql = 'SELECT bus_stops.real_stop_id FROM  fare_stage, bus_stops, new_services WHERE fare_stage.direction = ? and fare_stage.bus_number = ? and bus_stops.stop_id = fare_stage.stop_id and bus_stops.real_stop_id = new_services.real_stop_id and new_services.service = ?';
+		var destinations = [];
+		self.db.prepare(sql, function (error, statement) {
+			if (error) throw error;
+		    // Fill in the placeholders
+			statement.bindArray([direction, service_no, service_no], function () {
+				statement.fetchAll(function (error, rows) {
+
+					callback(rows);
+					statement.finalize(function (error) {
+						if (error) throw error;
+					});
+				});
+			});
+		});
+	}
+	
+	function findLatLong(bus_stop, callback) {
+		var sql = 'SELECT * FROM new_stops WHERE real_stop_id = ?';
+		self.db.prepare(sql, function (error, statement) {
+		    if (error) throw error;
+			statement.bindArray([bus_stop], function () {
+				var stop = {};
+				statement.fetchAll(function (error, rows) {
+					if (error) console.log("error getting rows");
+					stop.real_stop_id = rows[0].real_stop_id;
+					stop.stop_name = rows[0].stop_name;
+					stop.latitude = rows[0].latitude;
+					stop.longitude = rows[0].longitude;
+				    callback(stop);
+			    	statement.finalize(function (error) {
+			      		if (error) throw error;
+			    	});
+				});
+			});
+		});
+	}
+	self.findLatLong = findLatLong;	
+	self.findStopIds = findStopIds;
+	self.findDirectionsForBus = findDirectionsForBus;
+	self.findAllBus = findAllBus;
+	self.initialiseDb = initialiseDb;
 }
 
 
