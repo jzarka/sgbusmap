@@ -11,10 +11,7 @@ DbProvider = function() {
 DbProvider.prototype.realStopIdFromServiceAndDirection = function(service_no, direction, callback) {
   var db = new sqlite.Database();
   db.open("./busguides.db", function (error) {
-    if (error) {
-        console.log("Tonight. You.");
-        throw error;
-    }
+    if (error) throw error;
 	
 	var sql = 'SELECT bus_stops.real_stop_id FROM  fare_stage, bus_stops, new_services WHERE fare_stage.direction = ? and fare_stage.bus_number = ? and bus_stops.stop_id = fare_stage.stop_id and bus_stops.real_stop_id = new_services.real_stop_id and new_services.service = ?';
 	var destinations = [];
@@ -30,7 +27,6 @@ DbProvider.prototype.realStopIdFromServiceAndDirection = function(service_no, di
 	      });
 		  db.close(function(error) {
 			if (error) throw error;
-			console.log('closing db for destinationForBus.');
 		  });
 	    });
 	  });
@@ -41,42 +37,71 @@ DbProvider.prototype.realStopIdFromServiceAndDirection = function(service_no, di
 DbProvider.prototype.latLongFromRealStopIds = function(bus_stops, callback) {
   var db = new sqlite.Database();
   db.open("./busguides.db", function (error) {
-    if (error) {
-        console.log("Tonight. You.");
-        throw error;
-    }
+    if (error) throw error;
 
 	var sql = 'SELECT * FROM new_stops WHERE real_stop_id = ?';
-	console.log(bus_stops[0] + '.');
 	var i = 0;
-	
-	for (index = 0; index < bus_stops.length; index++) {
+	for (var index = 0; index < bus_stops.length; index++) {
+
 	  db.prepare(sql, function (error, statement) {
 	    if (error) throw error;
 		statement.bindArray([bus_stops[i++]['real_stop_id']], function () {
           var stop = {};
 	      statement.fetchAll(function (error, rows) {
+
 		    if (error) throw error;
 			stop.real_stop_id = rows[0].real_stop_id;
 			stop.stop_name = rows[0].stop_name;
 			stop.latitude = rows[0].latitude;
 			stop.longitude = rows[0].longitude;
 			callback(stop);
-		    statement.finalize(function (error) {
+			statement.finalize(function (error) {
 		      if (error) throw error;
 		    });
 	      });
 	    });
 	  });
     }
-	db.close(function(error) {
-		//TODO fix up this error!
-		if (error) console.log(error); //throw error;
-	});
+  });
+  db.close(function(error) {
+    if (error) throw error;
   });
 }
 
 
+DbProvider.prototype.latLongFromRealStopId = function(bus_stop, callback) {
+  var db = new sqlite.Database();
+  db.open("./busguides.db", function (error) {
+    if (error) throw error;
+
+	var sql = 'SELECT * FROM new_stops WHERE real_stop_id = ?';
+	var i = 0;
+	  db.prepare(sql, function (error, statement) {
+	    if (error) throw error;
+	    console.log('bus_stop' + bus_stop.real_stop_id);
+		statement.bindArray([bus_stop.real_stop_id], function () {
+          var stop = {};
+	      statement.fetchAll(function (error, rows) {
+
+		    if (error) throw error;
+			stop.real_stop_id = rows[0].real_stop_id;
+			stop.stop_name = rows[0].stop_name;
+			stop.latitude = rows[0].latitude;
+			stop.longitude = rows[0].longitude;
+			callback(stop);
+			statement.finalize(function (error) {
+		      if (error) throw error;
+//		  	db.close(function(error) {
+//		    		if (error) throw error;
+//		  		});
+		    });
+
+	      });
+	    });
+	  });
+  });
+
+}
 
 
 
@@ -85,10 +110,7 @@ DbProvider.prototype.latLongFromRealStopIds = function(bus_stops, callback) {
 DbProvider.prototype.busStopsForDirection = function(service_no, direction, callback) {
   var db = new sqlite.Database();
   db.open("./busguides.db", function (error) {
-    if (error) {
-        console.log("Tonight. You.");
-        throw error;
-    }
+    if (error) throw error;
 	
 	var sql = 'SELECT * FROM fare_stage WHERE bus_number = ? AND direction = ?';
 	var destinations = [];
@@ -104,7 +126,6 @@ DbProvider.prototype.busStopsForDirection = function(service_no, direction, call
 	      });
 		  db.close(function(error) {
 			if (error) throw error;
-			console.log('closing db for destinationForBus.');
 		  });
 	    });
 	  });
@@ -116,10 +137,7 @@ DbProvider.prototype.busStopsForDirection = function(service_no, direction, call
 DbProvider.prototype.busStopsForfromStopId = function(bus_stop_id, callback) {
   var db = new sqlite.Database();
   db.open("./busguides.db", function (error) {
-    if (error) {
-        console.log("Tonight. You.");
-        throw error;
-    }
+    if (error) throw error;
 	
 	var sql = 'SELECT * FROM fare_stage WHERE bus_number = ? AND direction = ?';
 	var destinations = [];
@@ -135,7 +153,6 @@ DbProvider.prototype.busStopsForfromStopId = function(bus_stop_id, callback) {
 	      });
 		  db.close(function(error) {
 			if (error) throw error;
-			console.log('closing db for destinationForBus.');
 		  });
 	    });
 	  });
@@ -143,14 +160,12 @@ DbProvider.prototype.busStopsForfromStopId = function(bus_stop_id, callback) {
   });
 }
 
-
+// callback to be called with:
+// [ { bus_number: '518', direction: 0, start_stop_name: 'PASIR RIS INT', start_road_name: 'PASIR RIS DR 3', end_stop_name: 'PASIR RIS INT',end_road_name: 'PASIR RIS DR 3' } ]
 DbProvider.prototype.destinationsForBus = function(service_no, callback) {
   var db = new sqlite.Database();
   db.open("./busguides.db", function (error) {
-    if (error) {
-        console.log("Tonight. You.");
-        throw error;
-    }
+    if (error) throw error;
 	
 	var sql = 'SELECT * FROM directions WHERE bus_number = ?';
 	var destinations = [];
@@ -166,7 +181,7 @@ DbProvider.prototype.destinationsForBus = function(service_no, callback) {
 	      });
 		  db.close(function(error) {
 			if (error) throw error;
-			console.log('closing db for destinationForBus.');
+//			console.log('closing db for destinationForBus.');
 		  });
 	    });
 	  });
@@ -201,7 +216,7 @@ DbProvider.prototype.findBusStops = function(service_no, callback) {
 	      });
 		  db.close(function(error) {
 			if (error) throw error;
-			console.log('closing db for findBusStops.');
+//			console.log('closing db for findBusStops.');
 		  });
 	    });
 	  });
@@ -238,18 +253,39 @@ DbProvider.prototype.addLatLong = function(bus_stops, callback) {
 			    callback(stop);
 		    }
 		    statement.finalize(function (error) {
-		      if (error) console.log('error finalizing statement db in addLatLong' + error);
-			  console.log('finalize.');
+		      if (error) {
+				console.log('error finalizing statement db in addLatLong' + error);
+				throw error;
+			  }
 		    });
 	      });
 	    });
 	  });
     }
 	db.close(function(error) {
-		if (error) console.log('error closing db in addLatLong.');
+		if (error) throw error;
 	});
   });
 }
+
+// callback to be called with:
+// { bus_number: '48', company_id: 0, service_type: 'na' }
+DbProvider.prototype.findAllBuses = function(callback) {
+  var db = new sqlite.Database();
+	db.open("./busguides.db", function (error) {
+		db.query("SELECT * FROM buses", function (error, rows) {
+  			if (error) throw error;
+
+			if (rows) callback(rows);
+		});
+	});
+	db.close(function(error) {
+		if (error) throw error;
+	});
+}
+
+
+
 
 
 exports.DbProvider = DbProvider;

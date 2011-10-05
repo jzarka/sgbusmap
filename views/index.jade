@@ -11,15 +11,39 @@ script
 	var DataStoreyProvider = function() {
 		this.bus_stops_map  = {};
 		this.bus_stops_id_to_marker = {};
+		this.bus_stops_id_to_circle = {};
 		this.socket = io.connect('http://localhost:3000');
 		this.selected_bus = null;
+		this.selected_dest = null;
 	}
 	var dataStoreyProvider = new DataStoreyProvider();
 	function connectToServer() {
+		dataStoreyProvider.socket.on('busStopModelManagerWithTime', function (data) {
+			console.log(data['busModelManager']);
+			$.each(data['busModelManager'], function(index, value) {
+				console.log(value);
+				var real_stop_id = value.real_stop_id;
+				var t = value.time;
+				var bus_stop = dataStoreyProvider.bus_stops_map[real_stop_id];
+				var myLatlng = new google.maps.LatLng(value.latitude, value.longitude);
+				// remove the previous marker:
+				if (dataStoreyProvider.bus_stops_id_to_circle[real_stop_id]) {
+					dataStoreyProvider.bus_stops_id_to_circle[real_stop_id].setMap(null);
+				}
+				var circle = addCircle(myLatlng, real_stop_id, parseInt(t) * 10);
+				dataStoreyProvider.bus_stops_id_to_circle[bus_stop.real_stop_id] = circle;
+			});
+			dataStoreyProvider.socket.emit('request_time', {selected_bus: dataStoreyProvider.selected_bus,
+															selected_dest: dataStoreyProvider.selected_dest});
+		});
 		dataStoreyProvider.socket.on('bus_stop', function (data) {
 			var bus_stop = data['bus_stop'];
 			dataStoreyProvider.bus_stops_map[bus_stop.real_stop_id] = bus_stop;
 			var myLatlng = new google.maps.LatLng(bus_stop['latitude'], bus_stop['longitude']);
+			// remove the previous marker:
+			if (dataStoreyProvider.bus_stops_id_to_marker[bus_stop.real_stop_id]) {
+				dataStoreyProvider.bus_stops_id_to_marker[bus_stop.real_stop_id].setMap(null);
+			}
 			var marker = addOverlay(myLatlng, bus_stop['stop_name']);
 			dataStoreyProvider.bus_stops_id_to_marker[bus_stop.real_stop_id] = marker;
 		});
@@ -30,7 +54,12 @@ script
 			var t = bus_stop_time.results[0].nextbus.t
 			var bus_stop = dataStoreyProvider.bus_stops_map[real_stop_id];
 			var myLatlng = new google.maps.LatLng(bus_stop['latitude'], bus_stop['longitude']);
-			addCircle(myLatlng, real_stop_id, parseInt(t) * 10);
+			// remove the previous marker:
+			if (dataStoreyProvider.bus_stops_id_to_circle[real_stop_id]) {
+				dataStoreyProvider.bus_stops_id_to_circle[real_stop_id].setMap(null);
+			}
+			var circle = addCircle(myLatlng, real_stop_id, parseInt(t) * 10);
+			dataStoreyProvider.bus_stops_id_to_circle[bus_stop.real_stop_id] = circle;			
 		});
 		dataStoreyProvider.socket.on('destinations', function (data) {
 			var html = '';
@@ -39,7 +68,6 @@ script
 				html += '<option value="' + destinations[i].direction + '">' + destinations[i].start_stop_name + '</option>';
 			}
 			$('select#destination_selector').append(html);
-			var destination = data.destinations;
 		});
 
 	}
@@ -58,6 +86,7 @@ script
 			var icon = new google.maps.MarkerImage("http://localhost:3000/images/12px-MTS_Bus_icon.svg.png");
 			marker.setIcon(icon);
 		}
+		return circle;
 	}
 	function addOverlay(myLatlng, title) {
 		var icon = new google.maps.MarkerImage("http://localhost:3000/images/12px-MTS_Bus_icon.svg.png");
@@ -103,16 +132,27 @@ script
 	var select_destination = function(obj) {
 		var selected_dest = obj.value;
 		var selected_bus = dataStoreyProvider.selected_bus;
+		dataStoreyProvider.selected_dest = selected_dest;
 		dataStoreyProvider.socket.emit('destination_selected', {selected_bus: selected_bus, selected_dest: selected_dest});
+	}
+	var requestTime = function(obj) {
+		dataStoreyProvider.socket.emit('request_time', {selected_bus: dataStoreyProvider.selected_bus,
+														selected_dest: dataStoreyProvider.selected_dest});	
+		//setInterval(function(){ 
+		//	dataStoreyProvider.socket.emit('request_time', {selected_bus: dataStoreyProvider.selected_bus,
+		//													selected_dest: dataStoreyProvider.selected_dest});
+		//	console.log('time requested.'); 
+		//}, 10000);
 	}
 
 div#control_canvas
 	p control canvas
-	select#bus_selector(onchange="javascript:select_bus(this)")
+	select#bus_selector(onchange="javascript:select_bus(this);")
 		option 3
 		option 2
-	select#destination_selector(onchange="javascript:select_destination(this)")
-
+	select#destination_selector(onchange="javascript:select_destination(this);")
+	button(onclick="javascript:requestTime('toutou');")
+		'start requesting times'
 
 
 div#map_canvas

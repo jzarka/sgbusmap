@@ -19,11 +19,20 @@ TimeProvider.prototype.requestTimeForBusStop = function(service_no, bus_stop_no,
 		var time = chunk.toString('utf8', 0, chunk.length); 
 		var jsonTime = JSON.parse(time);
 		jsonTime.real_stop_id = bus_stop_no;
+//		console.log(jsonTime);
 		callback(jsonTime);
 	}
 
-	var req = http.get(options, function(res) {  
-    		res.on('data', receive_time);   
+	var req = http.get(options, function(res) { 
+		var data = '';
+			res.on('data', function(chunk){ 
+	        	data += chunk; 
+	    	});
+	    	res.on('end', function(){
+				receive_time(data);
+				data = '';
+	    	}); 
+    		// res.on('data', receive_time);   
  		}).on('error', function(e) {  
 			console.log("Got error: " + e.message);   
 		});
